@@ -1,0 +1,79 @@
+"""
+The Google apps script that is used to transform the Google sheet to a Google form
+
+usage:
+- change
+- - [YOUR URL HERE] to your google forms url (remove "[","]")
+- - [YOUR SHEET NAME HERE] to your table sheet name  (remove "[","]")
+remarks:
+- I have never worked with java before so I was quite happy to found an apss script that tried to do a similar thing
+- I used that as my basis and as an orientation how java works
+- - sadly I did not find the source
+- Beyond that I studied the api for google forms
+- - https://developers.google.com/apps-script/reference/forms
+"""
+
+//ad your Google form url here!
+const FORM_URL =
+  "[YOUR URL HERE]";
+
+function populateForm() {
+
+  const form = FormApp.openByUrl(FORM_URL);
+
+  //Delete all form items (not the title though)
+  //to start anew
+  while (form.getItems().length > 0) {
+    form.deleteItem(form.getItems().pop());
+  }
+
+  //put your sheet name
+  const formSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("[YOUR SHEET NAME HERE]");
+
+  //get all data in 2D array
+  const formData = formSheet.getDataRange().getValues();
+
+  //set 1ROW to 0
+  formData.shift();
+
+  //Give items that are relevant
+  //Set required to true if it is "Yes"
+  //Images still a problem
+  const formItems = formData.map(
+    ([Question, Image, Type, Required, Description, Answer, CharImage]) => {
+      Required = Required === "Yes";
+      Answer = Answer.split("|").map((item) => item.trim())
+      return { Question, Image, Type, Required, Description, Answer, CharImage };
+    }
+  );
+
+
+  //Images for characters -- not possible atm
+  formItems.forEach(({ Question, Image, Type, Required, Description, Answer, CharImage }) => {
+    //see https://developers.google.com/apps-script/reference/forms for additional options
+    //.addDateItem or .addGridItem or ... can be added as needed
+    switch (Type.toLowerCase().trim()) {
+      case "image":
+        form.addImageItem().setTitle(Question).setHelpText(Description).setImage(UrlFetchApp.fetch(Image)).setAlignment(FormApp.Alignment.CENTER);
+        break;
+      case "checkbox":
+        form.addCheckboxItem().setChoiceValues(Answer).setTitle(Question).setHelpText(Description).setRequired(Required);
+        break;
+      case "multiplechoice":
+        form.addMultipleChoiceItem().setChoiceValues(Answer).setTitle(Question).setHelpText(Description).setRequired(Required);
+        break;
+      case "scale":
+        form.addScaleItem().setTitle(Question).setHelpText(Description).setBounds(0, 10).setLabels("bad", "good").setRequired(Required);
+        break;
+      case "section":
+        form.addPageBreakItem().setTitle(Question).setHelpText(Description);
+        break;
+      case "text":
+        form.addTextItem().setTitle(Question).setHelpText(Description).setRequired(Required);
+        break;
+      default:
+        break;
+    }
+  });
+}
